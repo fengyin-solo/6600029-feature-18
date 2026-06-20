@@ -79,6 +79,7 @@ export const useDroneStore = defineStore('drone', () => {
       totalDistance: stats.totalDistance,
       estimatedTime: stats.estimatedTime,
       batteryUsage: stats.batteryUsage,
+      phases: stats.phases,
     };
   }
 
@@ -124,6 +125,8 @@ export const useDroneStore = defineStore('drone', () => {
     return currentPlan.value.batteryUsage;
   });
 
+  const phaseStats = computed(() => currentPlan.value?.phases ?? []);
+
   const terrainProfile = computed(() => {
     if (waypoints.value.length < 2) return [];
     return waypoints.value.map((wp) => {
@@ -159,6 +162,7 @@ export const useDroneStore = defineStore('drone', () => {
     totalDistance,
     estimatedTime,
     batteryPercent,
+    phaseStats,
     terrainProfile,
     addWaypoint,
     removeWaypoint,

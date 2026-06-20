@@ -1,7 +1,14 @@
 <script setup lang="ts">
 import { useDroneStore } from '../store/drone';
+import type { FlightPhase } from '../types';
 
 const store = useDroneStore();
+
+const phaseLabel: Record<FlightPhase, string> = {
+  takeoff: '起飞',
+  cruise: '巡航',
+  return: '返航',
+};
 
 function formatTime(seconds: number): string {
   const m = Math.floor(seconds / 60);
@@ -77,6 +84,39 @@ function handleExport() {
           {{ store.selectedAlgorithm }}
         </div>
       </div>
+    </div>
+
+    <div v-if="store.phaseStats.length" class="border-t border-slate-700 pt-2">
+      <h4 class="text-xs text-slate-400 mb-1">任务阶段统计</h4>
+      <table class="w-full text-[10px]">
+        <thead>
+          <tr class="text-slate-500">
+            <th class="text-left font-medium py-1">阶段</th>
+            <th class="text-right font-medium py-1">距离</th>
+            <th class="text-right font-medium py-1">时间</th>
+            <th class="text-right font-medium py-1">耗电</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr
+            v-for="p in store.phaseStats"
+            :key="p.phase"
+            class="border-t border-slate-700/50"
+          >
+            <td class="py-1 text-slate-200">{{ phaseLabel[p.phase] }}</td>
+            <td class="text-right py-1 text-sky-400">
+              {{ (p.distance / 1000).toFixed(2) }}<span class="text-slate-500"> km</span>
+            </td>
+            <td class="text-right py-1 text-sky-400">{{ formatTime(p.time) }}</td>
+            <td
+              class="text-right py-1"
+              :style="{ color: batteryColor(p.batteryUsage) }"
+            >
+              {{ p.batteryUsage.toFixed(1) }}%
+            </td>
+          </tr>
+        </tbody>
+      </table>
     </div>
 
     <div class="border-t border-slate-700 pt-2">

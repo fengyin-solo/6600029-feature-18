@@ -1,4 +1,4 @@
-import type { Waypoint, NoFlyZone, TerrainPoint, FlightPlan, DroneConfig } from '../types';
+import type { Waypoint, NoFlyZone, TerrainPoint, FlightPlan, DroneConfig, PhaseStats } from '../types';
 
 // ─── Haversine distance ─────────────────────────────────────────────────────
 export function haversine(lat1: number, lng1: number, lat2: number, lng2: number): number {
@@ -267,24 +267,54 @@ export function smoothPath(waypoints: Waypoint[], segments = 5): Waypoint[] {
 }
 
 // ─── Flight Statistics ──────────────────────────────────────────────────────
+// Mission model (round-trip):
+//   takeoff = vertical climb to cruise altitude
+//   cruise  = outbound horizontal route (start → goal)
+//   return  = inbound route home (goal → start) + vertical descent
 export function calculateFlightStats(waypoints: Waypoint[], config: DroneConfig) {
-  let totalDistance = 0;
+  const VERTICAL_SPEED_FACTOR = 0.5;
+  const verticalSpeed = config.maxSpeed * VERTICAL_SPEED_FACTOR;
+
+  let pathDistance = 0;
   for (let i = 1; i < waypoints.length; i++) {
-    totalDistance += haversine(
+    pathDistance += haversine(
       waypoints[i - 1].lat, waypoints[i - 1].lng,
       waypoints[i].lat, waypoints[i].lng
     );
   }
 
   const avgSpeed = waypoints.reduce((s, w) => s + w.speed, 0) / (waypoints.length || 1);
-  const estimatedTime = totalDistance / (avgSpeed || 1); // seconds
-  const flightMinutes = estimatedTime / 60;
-  const batteryUsage = (flightMinutes * config.consumptionRate / config.batteryCapacity) * 100;
+  const cruiseAlt = waypoints.length > 0 ? Math.max(0, waypoints[0].altitude) : 0;
+
+  const batteryFor = (seconds: number) =>
+    (seconds / 60 * config.consumptionRate / config.batteryCapacity) * 100;
+
+  const climbDistance = cruiseAlt;
+  const climbTime = verticalSpeed > 0 ? climbDistance / verticalSpeed : 0;
+
+  const cruiseDistance = pathDistance;
+  const cruiseTime = avgSpeed > 0 ? cruiseDistance / avgSpeed : 0;
+
+  const returnDistance = pathDistance + climbDistance;
+  const returnTime =
+    (avgSpeed > 0 ? pathDistance / avgSpeed : 0) +
+    (verticalSpeed > 0 ? climbDistance / verticalSpeed : 0);
+
+  const phases: PhaseStats[] = [
+    { phase: 'takeoff', distance: climbDistance, time: climbTime, batteryUsage: batteryFor(climbTime) },
+    { phase: 'cruise', distance: cruiseDistance, time: cruiseTime, batteryUsage: batteryFor(cruiseTime) },
+    { phase: 'return', distance: returnDistance, time: returnTime, batteryUsage: batteryFor(returnTime) },
+  ];
+
+  const totalDistance = phases.reduce((s, p) => s + p.distance, 0);
+  const estimatedTime = phases.reduce((s, p) => s + p.time, 0);
+  const batteryUsage = Math.min(100, phases.reduce((s, p) => s + p.batteryUsage, 0));
 
   return {
     totalDistance,
     estimatedTime,
-    batteryUsage: Math.min(100, batteryUsage),
+    batteryUsage,
+    phases,
   };
 }
 

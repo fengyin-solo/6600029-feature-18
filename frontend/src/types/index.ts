@@ -7,6 +7,15 @@ export interface Waypoint {
   action: 'hover' | 'photo' | 'video' | 'none';
 }
 
+export type FlightPhase = 'takeoff' | 'cruise' | 'return';
+
+export interface PhaseStats {
+  phase: FlightPhase;
+  distance: number;    // meters
+  time: number;        // seconds
+  batteryUsage: number; // percentage
+}
+
 export interface FlightPlan {
   id: string;
   name: string;
@@ -14,6 +23,7 @@ export interface FlightPlan {
   totalDistance: number;
   estimatedTime: number;
   batteryUsage: number;  // percentage
+  phases: PhaseStats[];
 }
 
 export interface NoFlyZone {
